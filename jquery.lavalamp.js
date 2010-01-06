@@ -1,10 +1,10 @@
 /**
  * LavaLamp - A menu plugin for jQuery with cool hover effects.
- * @requires jQuery v1.2.x
+ * @requires jQuery v1.2.x or higher
  *
  * http://nixbox.com/lavalamp.php
  *
- * Copyright (c) 2008 Jolyon Terwilliger (nixbox.com)
+ * Copyright (c) 2008, 2009 Jolyon Terwilliger, jolyon@nixbox.com
  * Original code Copyright (c) 2007, 2008
  * Dual licensed under the MIT and GPL licenses:
  * http://www.opensource.org/licenses/mit-license.php
@@ -15,9 +15,35 @@
  * Version: 1.0 - adapted for jQuery 1.2.x series
  * Version: 1.1 - added linum parameter
  * Version: 1.2 - modified to support vertical resizing of elements
- * Version: 1.3 - enhanced automatic <li> item hi-lighting - will now default to 
- *					location.pathname + location.search + location.hash if linum not defined.
- *			 	- always returns 'true' by default, for standard link follow through. 				  
+ * Version: 1.3 - enhanced automatic <li> item hi-lighting - will attempt to
+ *					lock onto li > a element with href closest to selected
+ *					window.location
+ *			 	- click always returns 'true' by default, for standard link follow through.
+ *
+ * Version: 1.3.1 - verified for use with jQuery 1.3 - should still work with 1.2.x series
+ *				- changed linum parameter to startItem for clarity
+ *				- improved slide-in accuracy for .back elements with borders
+ *				- changed .current class to .selectedLava for clarity and improved
+ *					support
+ *				- appended 'Lava' to all internal class names to avoid conflicts
+ *				- fixed bug applying selectedLava class to elements with matching
+ *					location.hash
+ *				- now supports jquery.compat plugin for cross-library support
+ *				- performance improvements
+ *				- added new options:
+ *				autoReturn: true - if set to false, hover will not return to last selected
+ *									item upon list mouseout.
+ *				returnDelay: 0 - if set, will delay auto-return feature specified # of
+ *									milliseconds.
+ *				setOnClick: true - if set to false, hover will return to default element
+ *									regardless of click event.
+ *				homeLeft: 0, homeTop: 0 - if either set to non zero value, absolute
+ *									positioned li element with class .homeLava is 
+ *									prepended to list for homing feature.
+ *				homeWidth: 0, homeHeight: 0 - if set, are used for creation of li.homeLava
+ *									element.
+ *				returnHome: false - if set along with homeLeft or homeTop, lavalamp hover
+ *									will always return to li.home after click.
  *
  * Creates a menu with an unordered list of menu-items. You can either use the CSS 
  * that comes with the plugin, or write your own styles 
@@ -41,7 +67,7 @@
  *
  * @param Object - You can specify all the options shown below as object variables:
  *
- * @option fx - default is "linear"
+ * @option fx - default is "swing"
  * @example
  * $(".lavaLamp").lavaLamp({ fx: "easeOutElastic" });
  * @desc Creates a menu with "Elastic" easing effect. You need to include the easing plugin for this to work.
@@ -57,71 +83,122 @@
  * @desc You can supply a callback to be executed when the menu item is clicked. 
  * The event object and the menu-item that was clicked will be passed in as arguments.
  * 
- * @option linum - default is 'no'
+ * @option startItem - default is 'no'
  * @example
- * $(".lavaLamp").lavaLamp({ linum: 2 });
- * @desc linum specifies the li element to default to, beginning with 0 for the first li element 
+ * $(".lavaLamp").lavaLamp({ startItem: 2 });
+ * @desc startItem specifies the li element to default to, beginning with 0 for the first li element 
  * within the parent UL or OL used to initialize lavaLamp.  This can be used to set default
  * lavaLamp hilight on page reloads.
  */
- 
-(function($) {
-$.fn.lavaLamp = function(o) {
-	o = $.extend({ fx: 'linear', speed: 500, click: function(){return true}, linum: 'no' }, o || {});
+
+(function(jQuery) {
+jQuery.fn.lavaLamp = function(o) {
+	o = jQuery.extend({ fx: 'swing', 
+					  	speed: 500, 
+						click: function(){return true}, 
+						startItem: 'no',
+						autoReturn: true,
+						returnDelay: 0,
+						setOnClick: true,
+						homeTop:0,
+						homeLeft:0,
+						homeWidth:0,
+						homeHeight:0,
+						returnHome:false
+						}, 
+					o || {});
 
 	return this.each(function() {
 		var path = location.pathname + location.search + location.hash;
-		var $current = new Object;
-		var $li = $('li', this);
+		var $selected = new Object;
+		var delayTimer;
+		var $back;
+		var $home;
+		var ce;
 		
-		// check for complete path match, if so flag element into $current
-		if ( o.linum == 'no' )
-			$current = $('li a[href$="' + path + '"]', this).parent('li');
+		//
+		// create homeLava element if origin and dimensions set and startItem == off
+		if (o.homeTop || o.homeLeft) { 
+			$home = jQuery('<li class="homeLava selectedLava"></li>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
+			$(this).prepend($home);
+		}
+		
+		var $li = jQuery('li', this);
+		// check for complete path match, if so flag element into $selected
+		if ( o.startItem == 'no' )
+			$selected = jQuery('li a[href$="' + path + '"]', this).parent('li');
 			
 		// double check, this may be just an anchor match
-		if ($current.length == 0 && o.linum == 'no')
-			$current = $('li a[href$="' + location.hash + '"]', this).parent('li');
+		if ($selected.length == 0 && o.startItem == 'no' && location.hash)
+			$selected = jQuery('li a[href$="' + location.hash + '"]', this).parent('li');
 
-		// no default current element matches worked, or the user specified an index via linum
-		if ($current.length == 0 || o.linum != 'no') {
-			if (o.linum == 'no') o.linum = 0;
-			$current = $($li[o.linum]);
+		// no default selected element matches worked, 
+		// or the user specified an index via startItem
+		if ($selected.length == 0 || o.startItem != 'no') {
+			// always default to first item, if no startItem specified.
+			if (o.startItem == 'no') o.startItem = 0;
+			$selected = jQuery($li[o.startItem]);
 		}
+		// set up raw element - this allows user override by class .selectedLava on load
+		ce = jQuery('li.selectedLava', this)[0] || jQuery($selected).addClass('selectedLava')[0];
 
-		var $back = $('<li class="back"><div class="left"></div><div class="bottom"></div><div class="corner"></div></li>').appendTo(this);
-		//if (o.linum=='off') { $back.css('left',-200) };
-		var curr = $('li.current', this)[0] || $($current).addClass('current')[0];
-
-		$li.not('.back').hover(function() {
+		// add mouseover event for every sub element
+		$li.mouseover(function() {
+			if ($(this).hasClass('homeLava')) {
+				ce = $(this)[0];
+			}
 			move(this);
-		}, function(){});
+		});
 
-		$(this).hover(function(){}, function() {
-			move(curr);
+		$back = jQuery('<li class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></li>').appendTo(this);
+		
+		// after we leave the container element, move back to default/last clicked element
+		jQuery(this).mouseout( function() {
+			if (o.autoReturn) {
+				
+				if (o.returnHome && $home) {
+					move($home[0]);
+				}
+				else if (o.returnDelay) {
+					if(delayTimer) clearTimeout(delayTimer);
+					delayTimer = setTimeout(move,o.returnDelay + o.speed);
+				}
+				else {
+					move();
+				}
+			}
 		});
 
 		$li.click(function(e) {
-			setCurr(this);
+			if (o.setOnClick) {
+				$(ce).removeClass('selectedLava');
+				$(this).addClass('selectedLava');
+				ce = this;
+			}
 			return o.click.apply(this, [e, this]);
 		});
 
-        setCurr(curr);
+		// set the starting position for the lavalamp hover element: .back
+		if (o.homeTop || o.homeLeft) 
+			$back.css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight });
+		else
+			$back.css({ left: ce.offsetLeft, top: ce.offsetTop, width: ce.offsetWidth, height: ce.offsetHeight });
 
-        function setCurr(el) {
-            $back.css({ 'left': el.offsetLeft+'px', 
-						'width': el.offsetWidth+'px', 
-						'height': el.offsetHeight+'px', 
-						'top': el.offsetTop+'px' });
-            curr = el;
-		};
 
-		function move(el) { 
+		function move(el) {
+			if (!el) el = ce;
+			// .backLava element border check and animation fix
+			var bx=0, by=0;
+			if (!$.browser.msie) {
+				bx = ($back.outerWidth() - $back.innerWidth())/2;
+				by = ($back.outerHeight() - $back.innerHeight())/2;
+			}
 			$back.stop()
 			.animate({
-					width: el.offsetWidth,
-					left: el.offsetLeft,
-					height: el.offsetHeight,
-					top: el.offsetTop
+				left: el.offsetLeft-bx,
+				top: el.offsetTop-by,
+				width: el.offsetWidth,
+				height: el.offsetHeight
 			}, o.speed, o.fx);
 		};
 	});
