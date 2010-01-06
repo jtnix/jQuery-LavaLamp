@@ -1,11 +1,14 @@
 /**
- * LavaLamp - A menu plugin for jQuery with cool hover effects.
- * @requires jQuery v1.2.x or higher
+ * jquery.LavaLamp enhances an unordered list of menu-items with a ballooning animated effect
+ * similar to the Lava Lamps of the 1970s. Use the CSS provided with the demos at
+ * http://nixboxdesigns.com/demos/jquery-lavalamp-demos.html or experiment with your own styles 
  *
- * http://nixbox.com/lavalamp.php
+ * Requires jQuery v1.3.2
+ *
+ * http://nixboxdesigns.com/demos/jquery-lavalamp.php
  *
  * Copyright (c) 2008, 2009 Jolyon Terwilliger, jolyon@nixbox.com
- * Original code Copyright (c) 2007, 2008
+ * Source code Copyright (c) 2007, 2008
  * Dual licensed under the MIT and GPL licenses:
  * http://www.opensource.org/licenses/mit-license.php
  * http://www.gnu.org/licenses/gpl.html
@@ -45,11 +48,27 @@
  *				returnHome: false - if set along with homeLeft or homeTop, lavalamp hover
  *									will always return to li.home after click.
  *
- * Version: 1.3.2 - fixed stray $ references inside the plugin to work with
+ * Version: 1.3.2 - fixed: stray $ references inside the plugin to work with
  * 					jQuery.noConflict() properly - thanks Colin.
  *
- * Creates a menu with an unordered list of menu-items. You can either use the CSS 
- * that comes with the plugin, or write your own styles 
+ * Version: 1.3.3 - fixed: added closure with null passed argument for move() command in
+ * 					returnDelay to fix errors some were seeing - thanks to Michel and 
+ *					Richard for noticing this.
+ *
+ *					fixed: changed mouseover/out events to mouseenter/leave to fix jerky
+ *					animation problem when using excessive margins instead of padding.  
+ *					Thanks to Thomas for the solution and Chris for demonstrating the problem.
+ *					this fix requires jQuery 1.3.2 to work.
+ *
+ *					enhanced: added 'noLava' class detection to prevent LavaLamp effect
+ *					application to LI elements with this class. This feature allows you to
+ *					create submenus - for details, see examples at
+ *					http://nixboxdesigns.com/demos/jquery-lavalamp-demos.html
+ *
+ *					enhanced: modified to better automatically find default location for 
+ *					relative links. Thanks to Harold for testing and finding this bug.
+ *
+ * Examples and usage:
  *
  * The HTML markup used to build the menu can be as simple as...
  *
@@ -96,7 +115,7 @@
 
 (function(jQuery) {
 jQuery.fn.lavaLamp = function(o) {
-	o = jQuery.extend({ fx: 'swing', 
+	o = jQuery.extend({ fx: 'swing',
 					  	speed: 500, 
 						click: function(){return true}, 
 						startItem: 'no',
@@ -111,29 +130,28 @@ jQuery.fn.lavaLamp = function(o) {
 						}, 
 					o || {});
 
+	var $home;
+	// create homeLava element if origin dimensions set
+	if (o.homeTop || o.homeLeft) { 
+		$home = jQuery('<li class="homeLava selectedLava"></li>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
+		jQuery(this).prepend($home);
+	}
+		
 	return this.each(function() {
 		var path = location.pathname + location.search + location.hash;
 		var $selected = new Object;
 		var delayTimer;
 		var $back;
-		var $home;
-		var ce;
+		var ce; //current_element
 		
-		//
-		// create homeLava element if origin and dimensions set and startItem == off
-		if (o.homeTop || o.homeLeft) { 
-			$home = jQuery('<li class="homeLava selectedLava"></li>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
-			jQuery(this).prepend($home);
-		}
-		
-		var $li = jQuery('li', this);
+		var $li = jQuery('li[class!=noLava]', this);
 		// check for complete path match, if so flag element into $selected
 		if ( o.startItem == 'no' )
 			$selected = jQuery('li a[href$="' + path + '"]', this).parent('li');
 			
-		// double check, this may be just an anchor match
-		if ($selected.length == 0 && o.startItem == 'no' && location.hash)
-			$selected = jQuery('li a[href$="' + location.hash + '"]', this).parent('li');
+		// if still no match, this may be a relative link match 
+		if ($selected.length == 0 && o.startItem == 'no')
+			$selected = jQuery('li a[href$="' +location.pathname.substring(location.pathname.lastIndexOf('/')+1)+ location.search+location.hash + '"]', this).parent('li');
 
 		// no default selected element matches worked, 
 		// or the user specified an index via startItem
@@ -146,7 +164,7 @@ jQuery.fn.lavaLamp = function(o) {
 		ce = jQuery('li.selectedLava', this)[0] || jQuery($selected).addClass('selectedLava')[0];
 
 		// add mouseover event for every sub element
-		$li.mouseover(function() {
+		$li.mouseenter(function() {
 			if (jQuery(this).hasClass('homeLava')) {
 				ce = jQuery(this)[0];
 			}
@@ -156,18 +174,17 @@ jQuery.fn.lavaLamp = function(o) {
 		$back = jQuery('<li class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></li>').appendTo(this);
 		
 		// after we leave the container element, move back to default/last clicked element
-		jQuery(this).mouseout( function() {
+		jQuery(this).mouseleave( function() {
 			if (o.autoReturn) {
-				
 				if (o.returnHome && $home) {
 					move($home[0]);
 				}
 				else if (o.returnDelay) {
 					if(delayTimer) clearTimeout(delayTimer);
-					delayTimer = setTimeout(move,o.returnDelay + o.speed);
+					delayTimer = setTimeout(function(){move(null);},o.returnDelay + o.speed);
 				}
 				else {
-					move();
+					move(null);
 				}
 			}
 		});
