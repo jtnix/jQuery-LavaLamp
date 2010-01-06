@@ -45,6 +45,9 @@
  *				returnHome: false - if set along with homeLeft or homeTop, lavalamp hover
  *									will always return to li.home after click.
  *
+ * Version: 1.3.2 - fixed stray $ references inside the plugin to work with
+ * 					jQuery.noConflict() properly - thanks Colin.
+ *
  * Creates a menu with an unordered list of menu-items. You can either use the CSS 
  * that comes with the plugin, or write your own styles 
  *
@@ -85,7 +88,7 @@
  * 
  * @option startItem - default is 'no'
  * @example
- * $(".lavaLamp").lavaLamp({ startItem: 2 });
+ * jQuery(".lavaLamp").lavaLamp({ startItem: 2 });
  * @desc startItem specifies the li element to default to, beginning with 0 for the first li element 
  * within the parent UL or OL used to initialize lavaLamp.  This can be used to set default
  * lavaLamp hilight on page reloads.
@@ -120,7 +123,7 @@ jQuery.fn.lavaLamp = function(o) {
 		// create homeLava element if origin and dimensions set and startItem == off
 		if (o.homeTop || o.homeLeft) { 
 			$home = jQuery('<li class="homeLava selectedLava"></li>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
-			$(this).prepend($home);
+			jQuery(this).prepend($home);
 		}
 		
 		var $li = jQuery('li', this);
@@ -144,8 +147,8 @@ jQuery.fn.lavaLamp = function(o) {
 
 		// add mouseover event for every sub element
 		$li.mouseover(function() {
-			if ($(this).hasClass('homeLava')) {
-				ce = $(this)[0];
+			if (jQuery(this).hasClass('homeLava')) {
+				ce = jQuery(this)[0];
 			}
 			move(this);
 		});
@@ -171,15 +174,15 @@ jQuery.fn.lavaLamp = function(o) {
 
 		$li.click(function(e) {
 			if (o.setOnClick) {
-				$(ce).removeClass('selectedLava');
-				$(this).addClass('selectedLava');
+				jQuery(ce).removeClass('selectedLava');
+				jQuery(this).addClass('selectedLava');
 				ce = this;
 			}
 			return o.click.apply(this, [e, this]);
 		});
 
 		// set the starting position for the lavalamp hover element: .back
-		if (o.homeTop || o.homeLeft) 
+		if (o.homeTop || o.homeLeft)
 			$back.css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight });
 		else
 			$back.css({ left: ce.offsetLeft, top: ce.offsetTop, width: ce.offsetWidth, height: ce.offsetHeight });
@@ -189,7 +192,7 @@ jQuery.fn.lavaLamp = function(o) {
 			if (!el) el = ce;
 			// .backLava element border check and animation fix
 			var bx=0, by=0;
-			if (!$.browser.msie) {
+			if (!jQuery.browser.msie) {
 				bx = ($back.outerWidth() - $back.innerWidth())/2;
 				by = ($back.outerHeight() - $back.innerHeight())/2;
 			}
