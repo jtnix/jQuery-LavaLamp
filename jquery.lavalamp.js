@@ -1,5 +1,5 @@
 /**
- * jquery.LavaLamp v1.3.4b - light up your menu with fluid, jQuery powered animations.
+ * jquery.LavaLamp v1.3.4b2 - light up your menu with fluid, jQuery powered animations.
  *
  * Requires jQuery v1.2.3 or better from http://jquery.com
  * Tested on jQuery 1.4, 1.3.2 and 1.2.6
@@ -68,6 +68,7 @@
  *					relative links. Thanks to Harold for testing and finding this bug.
  *
  * Version: 1.3.4 - major overhaul on practically everything:
+ *					enhanced: added target and autoResize options - see below.
  *					enhanced: better automatic default item selection and URI resolution,
  *					better support for returnHome and returnDelay, refined internal variable
  *					usage and test to be as lean as possible
@@ -141,7 +142,7 @@
  * sets the animation speed to one second.
  * 
  * @param click - default: function() { return true; }
- * Callback to be executed when the menu item is clicked. The 'event' object and source LI
+ * Callback to be executed when the menu item is clicked. The 'event' object and source target
  * DOM element will be passed in as arguments so you can use them in your function.
  * 
  * Example:
@@ -149,12 +150,13 @@
  *		alert(event+el);
  *		return false;
  * } });
+ *
  * causes the browser to display an alert message of the variables passed and 
  * return false aborts any other click events on child items, including not 
- * following any links contained within the LI
+ * following any links contained within the target
  *
  * @param startItem - default: 'no'
- * specifies the number LI element as default, starting with 0 for the first element
+ * specifies the number target element as default, starting with 0 for the first element
  * Used to manually set the default lavaLamp hi-light on load.
  *
  * Example:
@@ -203,7 +205,7 @@
  * an interesting fly-in effect
  *
  * @param returnHome - default:false
- * adjusts behavior of the backLava element when the the mouse leaves the parent container. 
+ * adjusts behavior of the backLava element when the mouse leaves the parent container. 
  * the default behavior of 'false' causes the backLava element to stay on the active menu 
  * items after it is first triggered. this feature respects the returnDelay parameter, if set.
  * this feature overrides the autoReturn parameter.
@@ -214,6 +216,16 @@
  * mouse leaves the parent container.  this can be manually triggered by running 
  * the command jQuery("ul.lavaLamp").mouseover();
  *
+ * @param autoResize - default:false
+ * triggers the selectedLava mouseenter event when the window is resized 
+ * setting autoResize to true causes the backLava element to reposition and change dimensions
+ * if the resizing the screen changes the shape of the lavaLamp.  Best used with the
+ * target option. Default is false for efficiency as this feature is new and seldom used.
+ *
+ * Example:
+ * jQuery('div#articles').lavaLamp({target:'p',autoSize:true});
+ * causes the backLava element to resize and reposition to the p.selectedLava position 
+ * and dimensions when the window resizes.
  *
  */
 
@@ -233,9 +245,21 @@ jQuery.fn.lavaLamp = function(o) {
 				homeLeft:0,
 				homeWidth:0,
 				homeHeight:0,
-				returnHome:false
+				returnHome:false,
+				autoResize:false
 				}, 
 			o || {});
+
+	// parseInt for easy mathing
+	function getInt(arg) {
+		var myint = parseInt(arg);
+		return (isNaN(myint)? 0: myint);
+	}
+
+	if (o.autoResize)
+		jQuery(window).resize(function(){
+			jQuery(o.target+'.selectedLava').trigger('mouseenter');
+		});
 
 	return this.each(function() {
 		// ensures parent UL or OL element has some positioning
@@ -248,7 +272,7 @@ jQuery.fn.lavaLamp = function(o) {
 			jQuery(this).prepend($home);
 		}
 
-		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = jQuery(o.target+'[class!=noLava]', this), delayTimer, bx=by=0;
+		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = jQuery(o.target+'[class!=noLava]', this), delayTimer, bx=0, by=0;
 
 		// start $selected default with CSS class 'selectedLava'
 		$selected = jQuery(o.target+'.selectedLava', this);
@@ -309,19 +333,19 @@ jQuery.fn.lavaLamp = function(o) {
 		// creates and adds to the container a backLava element with absolute positioning
 		$back = jQuery('<li class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></li>').css('position','absolute').prependTo(this);
 
-		// compute border and padding differences on styled backLava element
-		bx = parseInt($back.css('borderLeftWidth').match(/\d+/))+parseInt($back.css('borderRightWidth').match(/\d+/))+parseInt($back.css('paddingLeft').match(/\d+/))+parseInt($back.css('paddingRight').match(/\d+/));
-		by = parseInt($back.css('borderTopWidth').match(/\d+/))+parseInt($back.css('borderBottomWidth').match(/\d+/))+parseInt($back.css('paddingTop').match(/\d+/))+parseInt($back.css('paddingBottom').match(/\d+/));
-		//console.log("bx="+bx+", by="+by);
+		// setting css height and width actually sets the innerHeight and innerWidth, so
+		// compute border and padding differences on styled backLava element to fit them in also.
+		bx = getInt($back.css('borderLeftWidth'))+getInt($back.css('borderRightWidth'))+getInt($back.css('paddingLeft'))+getInt($back.css('paddingRight'));
+		by = getInt($back.css('borderTopWidth'))+getInt($back.css('borderBottomWidth'))+getInt($back.css('paddingTop'))+getInt($back.css('paddingBottom'));
 
 		// set the starting position for the lavalamp hover element: .back
 		if (o.homeTop || o.homeLeft)
 			$back.css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight });
 		else
 		{
-			$back.css({ left: $selected.position().left, top: $selected.position().top, width: $selected.outerWidth()-bx, height: $selected.outerHeight()-by });
+			$back.css({ left: $selected.position().left, top: $selected.position().top, width: $selected.outerWidth()-bx, height: $selected.outerHeight()-by }); 
 		}
-		
+
 		// after we leave the container element, move back to default/last clicked element
 		jQuery(this).bind('mouseleave', function() {
 			//console.log('mouseleave');
@@ -353,5 +377,6 @@ jQuery.fn.lavaLamp = function(o) {
 			}, o.speed, o.fx);
 		};
 	});
+	
 };
 })(jQuery);
