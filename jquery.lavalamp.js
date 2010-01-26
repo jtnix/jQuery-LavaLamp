@@ -1,12 +1,12 @@
 /**
- jQuery LavaLamp 1.3.4a 
+ jQuery LavaLamp 1.3.4a2
 
  Requires jQuery v1.3.2 or better from http://jquery.com
 
  http://nixboxdesigns.com/projects/jquery-lavalamp/
 
- Copyright (c) 2008, 2009 Jolyon Terwilliger, jolyon@nixbox.com
- Source code Copyright (c) 2008, 2009
+ Copyright (c) 2008, 2009, 2010 Jolyon Terwilliger, jolyon@nixbox.com
+ Source code Copyright (c) 2008, 2009, 2010
  Dual licensed under the MIT and GPL licenses:
  http://www.opensource.org/licenses/mit-license.php
  http://www.gnu.org/licenses/gpl.html
@@ -113,13 +113,13 @@
  selects the third element in the list
  */
 
+//console.log();
 (function(jQuery) {
 jQuery.fn.lavaLamp = function(o) {
-
 	o = jQuery.extend({ fx: 'swing',
 				speed: 500, 
 				click: function(){return true}, 
-				startItem: 'no',
+				startItem: '',
 				autoReturn: true,
 				returnDelay: 0,
 				setOnClick: true,
@@ -131,33 +131,62 @@ jQuery.fn.lavaLamp = function(o) {
 				}, 
 			o || {});
 
-	var $home;
-	// create homeLava element if origin dimensions set
-	if (o.homeTop || o.homeLeft) { 
-		$home = jQuery('<li class="homeLava selectedLava"></li>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
-		jQuery(this).prepend($home);
-	}
-		
 	return this.each(function() {
-		var path = location.pathname + location.search + location.hash, $selected, $back, $li = jQuery('li[class!=noLava]', this), delayTimer, ce // current element
+		var path = location.pathname + location.search + location.hash, $selected, $back, $home, $li = jQuery('li[class!=noLava]', this), delayTimer, bx=by=0, ce; // current element
+		
+		// check for preset 'selectedLava'
+		$selected = jQuery('li.selectedLava', this);
+		
+		if ($selected.length <1 && o.startItem != '')
+			$selected = $li.eq(o.startItem);
 
-		// check for complete path match, if so flag element into $selected
-		if ( o.startItem == 'no' )
-			$selected = jQuery('li a[href$="' + path + '"]', this).parent('li');
-			
-		// if still no match, this may be a relative link match 
-		if ($selected.length == 0 && o.startItem == 'no')
-			$selected = jQuery('li a[href$="' +location.pathname.substring(location.pathname.lastIndexOf('/')+1)+ location.search+location.hash + '"]', this).parent('li');
-
-		// no default selected element matches worked, 
-		// or the user specified an index via startItem
-		if ($selected.length == 0 || o.startItem != 'no') {
-			// always default to first item, if no startItem specified.
-			if (o.startItem == 'no') o.startItem = 0;
-			$selected = jQuery($li[o.startItem]);
+		// create homeLava element if origin dimensions set
+		if (o.homeTop || o.homeLeft) { 
+			$home = jQuery('<li class="homeLava"></li>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
+			jQuery(this).prepend($home);
+			if ($selected.length<1) $selected = $home;
 		}
-		// set up raw element - this allows user override by class .selectedLava on load
-		ce = jQuery('li.selectedLava', this)[0] || jQuery($selected).addClass('selectedLava')[0];
+		
+		// why oh why?		
+		if ( $selected.length<1 && path=='/')
+			//$selected = jQuery('li a[href="/"]', this).parent('li');
+			$selected = $li.find('a[href="/"]').parent('li');
+		
+		// trailing fullpath (with slash) search - WordPress friendly
+		// matches both root absolute and domain+root absolute URIs
+		if ( $selected.length<1 && path!='/')
+			//$selected = jQuery('li a[href$="' + path + '"]', this).parent('li');
+			$selected = $li.find('a[href$="' + path + '"]').parent('li');
+
+		// strip trailing slash(es) if any and check for trailing path match
+		if ( $selected.length<1 ) {
+			path = path.replace(/\/+$/,'');
+			//$selected = jQuery('li a[href$="' + path + '"]', this).parent('li');
+			$selected = $li.find('a[href$="' + path + '"]').parent('li');
+		}
+
+		// strip off leading segments of the path by each / and attempt a trailing match
+		if ($selected.length<1) {
+			while (path.indexOf('/')>-1) {
+				path = path.substring(path.indexOf('/')+1);
+				//$selected = jQuery('li a[href$="'+path+'"]',this).parent('li');
+				$selected = $li.find('a[href$="'+path+'"]').parent('li');
+				//console.log('checking path: '+path+' len: '+$selected.length);
+				if ($selected.length>0 || path.indexOf('/')<0) break;
+			}
+		}
+	
+		// if still no matches, default to the first element
+		if ( $selected.length<1 )
+			$selected = $li.eq(0);
+
+		// make sure we only have one element as $selected and apply selectedLava class
+		$selected = jQuery($selected.eq(0).addClass('selectedLava'));
+			
+		// set up raw element for dimension info
+		ce = $selected[0];
+		//delete $selected;
+		//ce = jQuery('li.selectedLava', this)[0];
 
 		// add mouseover event for every sub element
 		$li.mouseenter(function() {
@@ -167,7 +196,7 @@ jQuery.fn.lavaLamp = function(o) {
 			move(this);
 		});
 
-		$back = jQuery('<li class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></li>').appendTo(this);
+		$back = jQuery('<li class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></li>').prependTo(this);
 		
 		// after we leave the container element, move back to default/last clicked element
 		jQuery(this).mouseleave( function() {
@@ -185,6 +214,23 @@ jQuery.fn.lavaLamp = function(o) {
 			}
 		});
 
+		//$bl = jQuery('li.backLava');
+		// correctly figure borders on styled backLava element into size of destination element
+		bx = parseInt($back.css('borderLeftWidth').match(/\d+/))+parseInt($back.css('borderRightWidth').match(/\d+/));
+		by = parseInt($back.css('borderTopWidth').match(/\d+/))+parseInt($back.css('borderBottomWidth').match(/\d+/));
+		//console.log("bx="+bx+", by="+by);
+
+		// set the starting position for the lavalamp hover element: .back
+		if (o.homeTop || o.homeLeft)
+			$back.css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight });
+		else
+			//$back.css({ left: ce.offsetLeft-bx, top: ce.offsetTop-by, width: ce.offsetWidth-bx, height: ce.offsetHeight-by });
+			{ 
+			var so = $selected.position();
+			$back.css({ left: so.left, top: so.top, width: $selected.outerWidth()-bx, height: $selected.outerHeight()-by });
+			}
+
+
 		$li.click(function(e) {
 			if (o.setOnClick) {
 				jQuery(ce).removeClass('selectedLava');
@@ -194,29 +240,31 @@ jQuery.fn.lavaLamp = function(o) {
 			return o.click.apply(this, [e, this]);
 		});
 
-		// set the starting position for the lavalamp hover element: .back
-		if (o.homeTop || o.homeLeft)
-			$back.css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight });
-		else
-			$back.css({ left: ce.offsetLeft, top: ce.offsetTop, width: ce.offsetWidth, height: ce.offsetHeight });
-
-
 		function move(el) {
 			if (!el) el = ce;
+
 			// .backLava element border check and animation fix
-			var bx=0, by=0;
-			/* rethink
-			if (jQuery.browser.msie) {
+/*
+			var bx=by=0;
+			if (!jQuery.browser.msie) {
 				bx = ($back.outerWidth() - $back.innerWidth())/2;
 				by = ($back.outerHeight() - $back.innerHeight())/2;
 			}
-			*/
+*/
+			var iso = jQuery(el).position();
+			
 			$back.stop()
 			.animate({
+/*
 				left: el.offsetLeft-bx,
 				top: el.offsetTop-by,
-				width: el.offsetWidth,
-				height: el.offsetHeight
+				width: el.offsetWidth-bx,
+				height: el.offsetHeight-by
+*/
+				left: iso.left,
+				top: iso.top,
+				width: jQuery(el).outerWidth()-bx,
+				height: jQuery(el).outerHeight()-by
 			}, o.speed, o.fx);
 		};
 	});
