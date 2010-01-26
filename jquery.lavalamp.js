@@ -1,8 +1,8 @@
 /**
- * jQuery LavaLamp v1.3.4a4 
+ * jquery.LavaLamp v1.3.4b - light up your menu with fluid, jQuery powered animations.
  *
  * Requires jQuery v1.2.3 or better from http://jquery.com
- * Tested on jQuery 1.2.6 and 1.3.2
+ * Tested on jQuery 1.4, 1.3.2 and 1.2.6
  *
  * http://nixboxdesigns.com/projects/jquery-lavalamp/
  *
@@ -118,6 +118,13 @@
  *
  * List of Parameters
  *
+ * @param target - default: 'li' 
+ * valid selector for target elements to receive hover effect
+ *
+ * Example:
+ * jQuery("div#article").lavaLamp({ target:'p' });
+ * assigns all p elements under div#article to receive lavaLamp hover events
+ *
  * @param fx - default: 'swing'
  * selects the easing formula for the animation - requires the jQuery Easing library 
  * to be loaded for additional effects
@@ -213,7 +220,9 @@
 //console.log();
 (function(jQuery) {
 jQuery.fn.lavaLamp = function(o) {
-	o = jQuery.extend({ fx: 'swing',
+	o = jQuery.extend({
+				target: 'li', 
+				fx: 'swing',
 				speed: 500, 
 				click: function(){return true}, 
 				startItem: '',
@@ -235,67 +244,56 @@ jQuery.fn.lavaLamp = function(o) {
 
 		// create homeLava element if origin dimensions set
 		if (o.homeTop || o.homeLeft) { 
-			var $home = jQuery('<li class="homeLava"></li>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
+			var $home = jQuery('<'+o.target+' class="homeLava"></'+o.target+'>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
 			jQuery(this).prepend($home);
 		}
 
-		var path = location.pathname + location.search + location.hash, $selected, $back, $li = jQuery('li[class!=noLava]', this), delayTimer, bx=by=0;
-		
+		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = jQuery(o.target+'[class!=noLava]', this), delayTimer, bx=by=0;
+
 		// start $selected default with CSS class 'selectedLava'
-		$selected = jQuery('li.selectedLava', this);
+		$selected = jQuery(o.target+'.selectedLava', this);
 		
 		// override $selected if startItem is set
 		if (o.startItem != '')
-			$selected = $li.eq(o.startItem);
+			$selected = $lt.eq(o.startItem);
 
 		// default to $home element
-		if ((o.homeTop || o.homeLeft) && $selected<1)
+		if ((o.homeTop || o.homeLeft) && $selected.length<1)
 			$selected = $home;
 
-		// if one of the links happens to be a single forward slash / this is the only way to catch it *sigh*	
-		if ( $selected.length<1 && path=='/')
-			$selected = $li.find('a[href="/"]').parent('li');
-		
-		// trailing fullpath (with slash) search - WordPress friendly
-		// matches both root absolute and domain+root absolute URIs
-		if ( $selected.length<1 && path!='/')
-			$selected = $li.find('a[href$="' + path + '"]').parent('li');
-
-		// strip trailing slash(es) if any and check for trailing path match
-		if ( $selected.length<1 ) {
-			path = path.replace(/\/+$/,'');
-			$selected = $li.find('a[href$="' + path + '"]').parent('li');
-		}
-
-		// strip off leading segments of the path by each / and attempt a trailing match
-		if ( $selected.length<1 && path.length > 0) {
-			while (path.indexOf('/')>-1) {
-				path = path.substring(path.indexOf('/')+1);
-				$selected = $li.find('a[href$="'+path+'"]').parent('li');
-				//console.log('checking path: '+path+' len: '+$selected.length);
-				if ($selected.length>0 || path.indexOf('/')<0) break;
-			}
-		}
-		
-		if ( $selected.length<1 && path.length > 0) {
-			path = path.substring(path.indexOf('#'));
-			$selected = $li.find('a[href$="'+path+'"]').parent('li');	
-		}
+		// loop through all the target element a href tags and
+		// the longest href to match the location path is deemed the most 
+		// accurate and selected as default
+		if ($selected.length<1) {
+			var pathmatch_len=0, $pathel;
 	
-		if ( $selected.length<1 && path.length > 0) {
-			path = path.substring(path.indexOf('?'));
-			$selected = $li.find('a[href$="'+path+'"]').parent('li');	
+			$lt.each(function(){ 
+				var thishref = $('a:first',this).attr('href');
+				//console.log(thishref+' size:'+thishref.length);
+				if (path.indexOf(thishref)>-1 && thishref.length > pathmatch_len )
+				{
+					$pathel = $(this);
+					pathmatch_len = thishref.length;
+				}
+	
+			});
+			if (pathmatch_len>0) {
+				//console.log('found match:'+$('a:first',$pathel).attr('href'));
+				$selected = $pathel;
+			}
+			//else 
+				//console.log('no match!');
 		}
 	
 		// if still no matches, default to the first element
 		if ( $selected.length<1 )
-			$selected = $li.eq(0);
+			$selected = $lt.eq(0);
 
 		// make sure we only have one element as $selected and apply selectedLava class
 		$selected = jQuery($selected.eq(0).addClass('selectedLava'));
 			
 		// add mouseover event for every sub element
-		$li.bind('mouseenter', function() {
+		$lt.bind('mouseenter', function() {
 			//console.log('mouseenter');
 			// help backLava behave if returnDelay is set
 			if(delayTimer) {clearTimeout(delayTimer);delayTimer=null;}
@@ -320,9 +318,8 @@ jQuery.fn.lavaLamp = function(o) {
 		if (o.homeTop || o.homeLeft)
 			$back.css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight });
 		else
-		{ 
-			var so = $selected.position();
-			$back.css({ left: so.left, top: so.top, width: $selected.outerWidth()-bx, height: $selected.outerHeight()-by });
+		{
+			$back.css({ left: $selected.position().left, top: $selected.position().top, width: $selected.outerWidth()-bx, height: $selected.outerHeight()-by });
 		}
 		
 		// after we leave the container element, move back to default/last clicked element
@@ -347,12 +344,10 @@ jQuery.fn.lavaLamp = function(o) {
 		function move($el) {
 			if (!$el) $el = $selected;
 
-			var iso = $el.position();
-			
 			$back.stop()
 			.animate({
-				left: iso.left,
-				top: iso.top,
+				left: $el.position().left,
+				top: $el.position().top,
 				width: $el.outerWidth()-bx,
 				height: $el.outerHeight()-by
 			}, o.speed, o.fx);
