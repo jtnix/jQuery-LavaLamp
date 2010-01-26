@@ -1,5 +1,5 @@
 /**
- jQuery LavaLamp 1.3.4a2
+ jQuery LavaLamp v1.3.4a3
 
  Requires jQuery v1.3.2 or better from http://jquery.com
 
@@ -132,36 +132,37 @@ jQuery.fn.lavaLamp = function(o) {
 			o || {});
 
 	return this.each(function() {
-		var path = location.pathname + location.search + location.hash, $selected, $back, $home, $li = jQuery('li[class!=noLava]', this), delayTimer, bx=by=0, ce; // current element
-		
-		// check for preset 'selectedLava'
-		$selected = jQuery('li.selectedLava', this);
-		
-		if ($selected.length <1 && o.startItem != '')
-			$selected = $li.eq(o.startItem);
-
 		// create homeLava element if origin dimensions set
 		if (o.homeTop || o.homeLeft) { 
-			$home = jQuery('<li class="homeLava"></li>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
+			var $home = jQuery('<li class="homeLava"></li>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
 			jQuery(this).prepend($home);
-			if ($selected.length<1) $selected = $home;
 		}
+
+		var path = location.pathname + location.search + location.hash, $selected, $back, $li = jQuery('li[class!=noLava]', this), delayTimer, bx=by=0;
 		
-		// why oh why?		
+		// start $selected default with CSS class 'selectedLava'
+		$selected = jQuery('li.selectedLava', this);
+		
+		// override $selected if startItem is set
+		if (o.startItem != '')
+			$selected = $li.eq(o.startItem);
+
+		// default to $home element
+		if ((o.homeTop || o.homeLeft) && $selected<1)
+			$selected = $home;
+		
+		// if one of the links happens to be a single forward slash / this is the only way to catch it *sigh*	
 		if ( $selected.length<1 && path=='/')
-			//$selected = jQuery('li a[href="/"]', this).parent('li');
 			$selected = $li.find('a[href="/"]').parent('li');
 		
 		// trailing fullpath (with slash) search - WordPress friendly
 		// matches both root absolute and domain+root absolute URIs
 		if ( $selected.length<1 && path!='/')
-			//$selected = jQuery('li a[href$="' + path + '"]', this).parent('li');
 			$selected = $li.find('a[href$="' + path + '"]').parent('li');
 
 		// strip trailing slash(es) if any and check for trailing path match
 		if ( $selected.length<1 ) {
 			path = path.replace(/\/+$/,'');
-			//$selected = jQuery('li a[href$="' + path + '"]', this).parent('li');
 			$selected = $li.find('a[href$="' + path + '"]').parent('li');
 		}
 
@@ -169,7 +170,6 @@ jQuery.fn.lavaLamp = function(o) {
 		if ($selected.length<1) {
 			while (path.indexOf('/')>-1) {
 				path = path.substring(path.indexOf('/')+1);
-				//$selected = jQuery('li a[href$="'+path+'"]',this).parent('li');
 				$selected = $li.find('a[href$="'+path+'"]').parent('li');
 				//console.log('checking path: '+path+' len: '+$selected.length);
 				if ($selected.length>0 || path.indexOf('/')<0) break;
@@ -183,26 +183,21 @@ jQuery.fn.lavaLamp = function(o) {
 		// make sure we only have one element as $selected and apply selectedLava class
 		$selected = jQuery($selected.eq(0).addClass('selectedLava'));
 			
-		// set up raw element for dimension info
-		ce = $selected[0];
-		//delete $selected;
-		//ce = jQuery('li.selectedLava', this)[0];
-
 		// add mouseover event for every sub element
 		$li.mouseenter(function() {
-			if (jQuery(this).hasClass('homeLava')) {
-				ce = jQuery(this)[0];
-			}
-			move(this);
+			//console.log('mouseenter');
+			if(delayTimer) {clearTimeout(delayTimer);delayTimer=null;}
+			move(jQuery(this));
 		});
 
 		$back = jQuery('<li class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></li>').prependTo(this);
 		
 		// after we leave the container element, move back to default/last clicked element
 		jQuery(this).mouseleave( function() {
+			//console.log('mouseleave');
 			if (o.autoReturn) {
 				if (o.returnHome && $home) {
-					move($home[0]);
+					move($home);
 				}
 				else if (o.returnDelay) {
 					if(delayTimer) clearTimeout(delayTimer);
@@ -214,8 +209,7 @@ jQuery.fn.lavaLamp = function(o) {
 			}
 		});
 
-		//$bl = jQuery('li.backLava');
-		// correctly figure borders on styled backLava element into size of destination element
+		// compute border differences on styled backLava element
 		bx = parseInt($back.css('borderLeftWidth').match(/\d+/))+parseInt($back.css('borderRightWidth').match(/\d+/));
 		by = parseInt($back.css('borderTopWidth').match(/\d+/))+parseInt($back.css('borderBottomWidth').match(/\d+/));
 		//console.log("bx="+bx+", by="+by);
@@ -224,47 +218,31 @@ jQuery.fn.lavaLamp = function(o) {
 		if (o.homeTop || o.homeLeft)
 			$back.css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight });
 		else
-			//$back.css({ left: ce.offsetLeft-bx, top: ce.offsetTop-by, width: ce.offsetWidth-bx, height: ce.offsetHeight-by });
-			{ 
+		{ 
 			var so = $selected.position();
 			$back.css({ left: so.left, top: so.top, width: $selected.outerWidth()-bx, height: $selected.outerHeight()-by });
-			}
+		}
 
 
 		$li.click(function(e) {
 			if (o.setOnClick) {
-				jQuery(ce).removeClass('selectedLava');
-				jQuery(this).addClass('selectedLava');
-				ce = this;
+				$selected.removeClass('selectedLava');
+				$selected = jQuery(this).addClass('selectedLava');
 			}
 			return o.click.apply(this, [e, this]);
 		});
 
-		function move(el) {
-			if (!el) el = ce;
+		function move($el) {
+			if (!$el) $el = $selected;
 
-			// .backLava element border check and animation fix
-/*
-			var bx=by=0;
-			if (!jQuery.browser.msie) {
-				bx = ($back.outerWidth() - $back.innerWidth())/2;
-				by = ($back.outerHeight() - $back.innerHeight())/2;
-			}
-*/
-			var iso = jQuery(el).position();
+			var iso = $el.position();
 			
 			$back.stop()
 			.animate({
-/*
-				left: el.offsetLeft-bx,
-				top: el.offsetTop-by,
-				width: el.offsetWidth-bx,
-				height: el.offsetHeight-by
-*/
 				left: iso.left,
 				top: iso.top,
-				width: jQuery(el).outerWidth()-bx,
-				height: jQuery(el).outerHeight()-by
+				width: $el.outerWidth()-bx,
+				height: $el.outerHeight()-by
 			}, o.speed, o.fx);
 		};
 	});
