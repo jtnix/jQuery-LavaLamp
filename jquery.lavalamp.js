@@ -1,8 +1,8 @@
 /**
- * jquery.LavaLamp v1.3.4 - light up your menus with fluid, jQuery powered animations.
+ * jquery.LavaLamp v1.3.5 - light up your menus with fluid, jQuery powered animations.
  *
  * Requires jQuery v1.2.3 or better from http://jquery.com
- * Tested on jQuery 1.4, 1.3.2 and 1.2.6
+ * Tested on jQuery 1.4.4, 1.3.2 and 1.2.6
  *
  * http://nixbox.com/projects/jquery-lavalamp/
  *
@@ -67,9 +67,8 @@
  *					enhanced: modified to better automatically find default location for 
  *					relative links. Thanks to Harold for testing and finding this bug.
  *
- * Version: 1.3.4 - overhaul on practically everything.
- *					new option:
- 						autoResize options - see examples below.
+ * Version: 1.3.4 - major overhaul on practically everything:
+ *					enhanced: added autoResize option; see examples below.
  *					enhanced: better automatic default item selection and URI resolution,
  *					better support for returnHome and returnDelay, refined internal variable
  *					usage and test to be as lean as possible
@@ -80,7 +79,21 @@
  *					fixed: proper quotes around all object element labels.
  *					enhanced: behaves more like a plugin should and now automatically adds proper
  * 							position and display CSS tags to the backLava element and parent container
- *							if absent. 
+ *							if absent.
+ *
+ * Version: 1.3.5 - new options:
+ * 						target: 'li' - plain element to target to receive hover events.
+ *						container: '' - plain element to create for the hover .backLava and .homeLava
+ *							elements. If left blank (default) same value as target option is used.
+ *						includeMargins: false - set to true to expand the hover element dimensions to 
+ *							include the margins of the target element.
+ *				    changed: the backLava hover element now has all margins and padding manually set to 
+ *							zero to allow proper resizing of hover when used with custom target, container  
+ * 							and includeMargins options. While this workaround has no effect with the site
+ *							demos, it potentially may affect your current implementation. If you do 
+ *							experience problems try re-adjusting the CSS padding and margins for 
+ *							your target elements.
+ *
  *
  * Examples and usage:
  *
@@ -123,13 +136,21 @@
  * List of Parameters
  *
  * @param target - default: 'li' 
- * valid selector for target elements to receive hover effect. Also used to create backLava hover and
- * home elements.
+ * valid selector for target elements to receive hover effect.
  *
  * Example:
  * jQuery("div#article").lavaLamp({ target:'p' });
- * assigns all p elements under div#article to receive lavaLamp hover events, and creates a p element 
- * for the backLava hover element.
+ * assigns all p elements under div#article to receive lavaLamp hover events.
+ *
+ * @param container - default: '' (empty string) 
+ * DOM element to create for the hover element. If container is empty, LavaLamp
+ * will assume it is the same as the target option.
+ *
+ * Example:
+ * jQuery("div#article").lavaLamp({ container:'p' });
+ * creates a p element under div#article to act as the animated hover container, and optionally the
+ * home container, if homing options are enabled
+ * use in combination with 'target' option for best results (see above)
  *
  * @param fx - default: 'swing'
  * selects the easing formula for the animation - requires the jQuery Easing library 
@@ -160,13 +181,22 @@
  * return false aborts any other click events on child items, including not 
  * following any links contained within the target
  *
- * @param startItem - default: '' (empty string)
+ * @param startItem - default: 'no'
  * specifies the number target element as default, starting with 0 for the first element
  * Used to manually set the default lavaLamp hi-light on load.
  *
  * Example:
  * jQuery("ul.lavaLamp").lavaLamp({ startItem: 2 });
  * selects the third element in the list as default location for backLava
+ *
+ * @param includeMargins - default: false
+ * expands the hover .backLava element to include the margins of the target element.
+ * Best used in combination with the target and container options.
+ *
+ * Example:
+ * jQuery("ul.lavaLamp").lavaLamp({ includeMargins: true });
+ * expands the hover .backLava element dimentions to include the margins of all
+ * target elements inside ul.lavaLamp.
  *
  * @param autoReturn - default: true
  * defines whether the backLava hover should return to the last selectedLava element
@@ -238,11 +268,13 @@
 (function($) {
 jQuery.fn.lavaLamp = function(o) {
 	o = $.extend({
-				'target': 'li', 
+				'target': 'li',
+				'container': '',
 				'fx': 'swing',
 				'speed': 500, 
 				'click': function(){return true}, 
 				'startItem': '',
+				'includeMargins': false,
 				'autoReturn': true,
 				'returnDelay': 0,
 				'setOnClick': true,
@@ -261,6 +293,9 @@ jQuery.fn.lavaLamp = function(o) {
 		return (isNaN(myint)? 0: myint);
 	}
 
+	if (o.container == '')
+		o.container = o.target;
+
 	if (o.autoResize)
 		$(window).resize(function(){
 			$(o.target+'.selectedLava').trigger('mouseenter');
@@ -273,11 +308,11 @@ jQuery.fn.lavaLamp = function(o) {
 
 		// create homeLava element if origin dimensions set
 		if (o.homeTop || o.homeLeft) { 
-			var $home = $('<'+o.target+' class="homeLava"></'+o.target+'>').css({ 'left':o.homeLeft, 'top':o.homeTop, 'width':o.homeWidth, 'height':o.homeHeight, 'position':'absolute','display':'block' });
+			var $home = $('<'+o.container+' class="homeLava"></'+o.container+'>').css({ 'left':o.homeLeft, 'top':o.homeTop, 'width':o.homeWidth, 'height':o.homeHeight, 'position':'absolute','display':'block' });
 			$(this).prepend($home);
 		}
 
-		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = $(o.target+'[class!=noLava]', this), delayTimer, bx=0, by=0;
+		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = $(o.target+'[class!=noLava]', this), delayTimer, bx=0, by=0, mh=0, mw=0, ml=0, mt=0;
 
 		// start $selected default with CSS class 'selectedLava'
 		$selected = $(o.target+'.selectedLava', this);
@@ -336,19 +371,27 @@ jQuery.fn.lavaLamp = function(o) {
 		});
 		
 		// creates and adds to the container a backLava element with absolute positioning
-		$back = $('<'+o.target+' class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></'+o.target+'>').css({'position':'absolute','display':'block'}).prependTo(this);
+		$back = $('<'+o.container+' class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></'+o.container+'>').css({'position':'absolute','display':'block','margin':0,'padding':0}).prependTo(this);
 
 		// setting css height and width actually sets the innerHeight and innerWidth, so
 		// compute border and padding differences on styled backLava element to fit them in also.
-		bx = getInt($back.css('borderLeftWidth'))+getInt($back.css('borderRightWidth'))+getInt($back.css('paddingLeft'))+getInt($back.css('paddingRight'));
-		by = getInt($back.css('borderTopWidth'))+getInt($back.css('borderBottomWidth'))+getInt($back.css('paddingTop'))+getInt($back.css('paddingBottom'));
+		if (o.includeMargins) {
+			mh = getInt($selected.css('marginTop')) + getInt($selected.css('marginBottom'));
+			mw = getInt($selected.css('marginLeft')) + getInt($selected.css('marginRight'));
+		}
+		bx = getInt($back.css('borderLeftWidth'))+getInt($back.css('borderRightWidth'))+getInt($back.css('paddingLeft'))+getInt($back.css('paddingRight'))-mw;
+		by = getInt($back.css('borderTopWidth'))+getInt($back.css('borderBottomWidth'))+getInt($back.css('paddingTop'))+getInt($back.css('paddingBottom'))-mh;
 
 		// set the starting position for the lavalamp hover element: .back
 		if (o.homeTop || o.homeLeft)
 			$back.css({ 'left':o.homeLeft, 'top':o.homeTop, 'width':o.homeWidth, 'height':o.homeHeight });
 		else
 		{
-			$back.css({ 'left': $selected.position().left, 'top': $selected.position().top, 'width': $selected.outerWidth()-bx, 'height': $selected.outerHeight()-by }); 
+			if (!o.includeMargins) {
+				ml = (getInt($selected.css('marginLeft')));
+				mt = (getInt($selected.css('marginTop')));
+			}
+			$back.css({ 'left': $selected.position().left+ml, 'top': $selected.position().top+mt, 'width': $selected.outerWidth()-bx, 'height': $selected.outerHeight()-by }); 
 		}
 
 		// after we leave the container element, move back to default/last clicked element
@@ -373,13 +416,18 @@ jQuery.fn.lavaLamp = function(o) {
 		function move($el) {
 			if (!$el) $el = $selected;
 
-			$back.stop()
-			.animate({
-				'left': $el.position().left,
-				'top': $el.position().top,
+			if (!o.includeMargins) {
+				ml = (getInt($el.css('marginLeft')));
+				mt = (getInt($el.css('marginTop')));
+			}
+			var dims = {
+				'left': $el.position().left+ml,
+				'top': $el.position().top+mt,
 				'width': $el.outerWidth()-bx,
 				'height': $el.outerHeight()-by
-			}, o.speed, o.fx);
+			};
+			
+			$back.stop().animate(dims, o.speed, o.fx);
 		};
 	});
 	
