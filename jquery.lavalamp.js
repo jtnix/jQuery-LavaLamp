@@ -1,10 +1,10 @@
 /**
- * jquery.LavaLamp v1.3.4b2 - light up your menu with fluid, jQuery powered animations.
+ * jquery.LavaLamp v1.3.4 - light up your menus with fluid, jQuery powered animations.
  *
  * Requires jQuery v1.2.3 or better from http://jquery.com
  * Tested on jQuery 1.4, 1.3.2 and 1.2.6
  *
- * http://nixboxdesigns.com/projects/jquery-lavalamp/
+ * http://nixbox.com/projects/jquery-lavalamp/
  *
  * Copyright (c) 2008, 2009, 2010 Jolyon Terwilliger, jolyon@nixbox.com
  * Source code Copyright (c) 2008, 2009, 2010
@@ -67,16 +67,19 @@
  *					enhanced: modified to better automatically find default location for 
  *					relative links. Thanks to Harold for testing and finding this bug.
  *
- * Version: 1.3.4 - major overhaul on practically everything:
- *					enhanced: added target and autoResize options - see below.
+ * Version: 1.3.4 - overhaul on practically everything.
+ *					new option:
+ 						autoResize options - see examples below.
  *					enhanced: better automatic default item selection and URI resolution,
  *					better support for returnHome and returnDelay, refined internal variable
  *					usage and test to be as lean as possible
  *					fixed: backLava hover element now exactly covers the destination LI dimensions.
  *					fixed: changed use of mouseleave/mouseenter to bind events so will work with
  *							jQuery 1.2.2 onward.
+ *					fixed: proper closure on instance - should finally play nice with other libraries
+ *					fixed: proper quotes around all object element labels.
  *					enhanced: behaves more like a plugin should and now automatically adds proper
- * 							position CSS tags to the backLava element and parent container
+ * 							position and display CSS tags to the backLava element and parent container
  *							if absent. 
  *
  * Examples and usage:
@@ -120,11 +123,13 @@
  * List of Parameters
  *
  * @param target - default: 'li' 
- * valid selector for target elements to receive hover effect
+ * valid selector for target elements to receive hover effect. Also used to create backLava hover and
+ * home elements.
  *
  * Example:
  * jQuery("div#article").lavaLamp({ target:'p' });
- * assigns all p elements under div#article to receive lavaLamp hover events
+ * assigns all p elements under div#article to receive lavaLamp hover events, and creates a p element 
+ * for the backLava hover element.
  *
  * @param fx - default: 'swing'
  * selects the easing formula for the animation - requires the jQuery Easing library 
@@ -155,7 +160,7 @@
  * return false aborts any other click events on child items, including not 
  * following any links contained within the target
  *
- * @param startItem - default: 'no'
+ * @param startItem - default: '' (empty string)
  * specifies the number target element as default, starting with 0 for the first element
  * Used to manually set the default lavaLamp hi-light on load.
  *
@@ -219,8 +224,8 @@
  * @param autoResize - default:false
  * triggers the selectedLava mouseenter event when the window is resized 
  * setting autoResize to true causes the backLava element to reposition and change dimensions
- * if the resizing the screen changes the shape of the lavaLamp.  Best used with the
- * target option. Default is false for efficiency as this feature is new and seldom used.
+ * if the resizing the screen changes the shape of the lavaLamp. Default is false for efficiency 
+ * as this feature is new and seldom needed for stock installs.
  *
  * Example:
  * jQuery('div#articles').lavaLamp({target:'p',autoSize:true});
@@ -230,23 +235,23 @@
  */
 
 //console.log();
-(function(jQuery) {
+(function($) {
 jQuery.fn.lavaLamp = function(o) {
-	o = jQuery.extend({
-				target: 'li', 
-				fx: 'swing',
-				speed: 500, 
-				click: function(){return true}, 
-				startItem: '',
-				autoReturn: true,
-				returnDelay: 0,
-				setOnClick: true,
-				homeTop:0,
-				homeLeft:0,
-				homeWidth:0,
-				homeHeight:0,
-				returnHome:false,
-				autoResize:false
+	o = $.extend({
+				'target': 'li', 
+				'fx': 'swing',
+				'speed': 500, 
+				'click': function(){return true}, 
+				'startItem': '',
+				'autoReturn': true,
+				'returnDelay': 0,
+				'setOnClick': true,
+				'homeTop':0,
+				'homeLeft':0,
+				'homeWidth':0,
+				'homeHeight':0,
+				'returnHome':false,
+				'autoResize':false
 				}, 
 			o || {});
 
@@ -257,25 +262,25 @@ jQuery.fn.lavaLamp = function(o) {
 	}
 
 	if (o.autoResize)
-		jQuery(window).resize(function(){
-			jQuery(o.target+'.selectedLava').trigger('mouseenter');
+		$(window).resize(function(){
+			$(o.target+'.selectedLava').trigger('mouseenter');
 		});
 
 	return this.each(function() {
 		// ensures parent UL or OL element has some positioning
-		if (jQuery(this).css('position')=='static')
-			jQuery(this).css('position','relative');
+		if ($(this).css('position')=='static')
+			$(this).css('position','relative');
 
 		// create homeLava element if origin dimensions set
 		if (o.homeTop || o.homeLeft) { 
-			var $home = jQuery('<'+o.target+' class="homeLava"></'+o.target+'>').css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight, position:'absolute' });
-			jQuery(this).prepend($home);
+			var $home = $('<'+o.target+' class="homeLava"></'+o.target+'>').css({ 'left':o.homeLeft, 'top':o.homeTop, 'width':o.homeWidth, 'height':o.homeHeight, 'position':'absolute','display':'block' });
+			$(this).prepend($home);
 		}
 
-		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = jQuery(o.target+'[class!=noLava]', this), delayTimer, bx=0, by=0;
+		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = $(o.target+'[class!=noLava]', this), delayTimer, bx=0, by=0;
 
 		// start $selected default with CSS class 'selectedLava'
-		$selected = jQuery(o.target+'.selectedLava', this);
+		$selected = $(o.target+'.selectedLava', this);
 		
 		// override $selected if startItem is set
 		if (o.startItem != '')
@@ -314,24 +319,24 @@ jQuery.fn.lavaLamp = function(o) {
 			$selected = $lt.eq(0);
 
 		// make sure we only have one element as $selected and apply selectedLava class
-		$selected = jQuery($selected.eq(0).addClass('selectedLava'));
+		$selected = $($selected.eq(0).addClass('selectedLava'));
 			
 		// add mouseover event for every sub element
 		$lt.bind('mouseenter', function() {
 			//console.log('mouseenter');
 			// help backLava behave if returnDelay is set
 			if(delayTimer) {clearTimeout(delayTimer);delayTimer=null;}
-			move(jQuery(this));
+			move($(this));
 		}).click(function(e) {
 			if (o.setOnClick) {
 				$selected.removeClass('selectedLava');
-				$selected = jQuery(this).addClass('selectedLava');
+				$selected = $(this).addClass('selectedLava');
 			}
 			return o.click.apply(this, [e, this]);
 		});
 		
 		// creates and adds to the container a backLava element with absolute positioning
-		$back = jQuery('<li class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></li>').css('position','absolute').prependTo(this);
+		$back = $('<'+o.target+' class="backLava"><div class="leftLava"></div><div class="bottomLava"></div><div class="cornerLava"></div></'+o.target+'>').css({'position':'absolute','display':'block'}).prependTo(this);
 
 		// setting css height and width actually sets the innerHeight and innerWidth, so
 		// compute border and padding differences on styled backLava element to fit them in also.
@@ -340,14 +345,14 @@ jQuery.fn.lavaLamp = function(o) {
 
 		// set the starting position for the lavalamp hover element: .back
 		if (o.homeTop || o.homeLeft)
-			$back.css({ left:o.homeLeft, top:o.homeTop, width:o.homeWidth, height:o.homeHeight });
+			$back.css({ 'left':o.homeLeft, 'top':o.homeTop, 'width':o.homeWidth, 'height':o.homeHeight });
 		else
 		{
-			$back.css({ left: $selected.position().left, top: $selected.position().top, width: $selected.outerWidth()-bx, height: $selected.outerHeight()-by }); 
+			$back.css({ 'left': $selected.position().left, 'top': $selected.position().top, 'width': $selected.outerWidth()-bx, 'height': $selected.outerHeight()-by }); 
 		}
 
 		// after we leave the container element, move back to default/last clicked element
-		jQuery(this).bind('mouseleave', function() {
+		$(this).bind('mouseleave', function() {
 			//console.log('mouseleave');
 			var $returnEl = null;
 			if (o.returnHome)
@@ -370,10 +375,10 @@ jQuery.fn.lavaLamp = function(o) {
 
 			$back.stop()
 			.animate({
-				left: $el.position().left,
-				top: $el.position().top,
-				width: $el.outerWidth()-bx,
-				height: $el.outerHeight()-by
+				'left': $el.position().left,
+				'top': $el.position().top,
+				'width': $el.outerWidth()-bx,
+				'height': $el.outerHeight()-by
 			}, o.speed, o.fx);
 		};
 	});
