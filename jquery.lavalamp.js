@@ -199,7 +199,7 @@
  * target elements inside ul.lavaLamp.
  *
  * @param autoReturn - default: true
- * defines whether the backLava hover should return to the last selectedLava element
+ * defines whether the backLava hover should return to the last selectedClass element
  * upon mouseleave.
  *
  * Example:
@@ -252,14 +252,14 @@
  * the command jQuery("ul.lavaLamp").mouseover();
  *
  * @param autoResize - default:false
- * triggers the selectedLava mouseenter event when the window is resized 
+ * triggers the selectedClass mouseenter event when the window is resized
  * setting autoResize to true causes the backLava element to reposition and change dimensions
  * if the resizing the screen changes the shape of the lavaLamp. Default is false for efficiency 
  * as this feature is new and seldom needed for stock installs.
  *
  * Example:
  * jQuery('div#articles').lavaLamp({target:'p',autoSize:true});
- * causes the backLava element to resize and reposition to the p.selectedLava position 
+ * causes the backLava element to resize and reposition to the p.`selectedClass` position
  * and dimensions when the window resizes.
  *
  */
@@ -283,7 +283,8 @@ jQuery.fn.lavaLamp = function(o) {
 				'homeWidth':0,
 				'homeHeight':0,
 				'returnHome':false,
-				'autoResize':false
+				'autoResize':false,
+                'selectClass': 'selectedLava'
 				}, 
 			o || {});
 
@@ -298,7 +299,7 @@ jQuery.fn.lavaLamp = function(o) {
 
 	if (o.autoResize)
 		$(window).resize(function(){
-			$(o.target+'.selectedLava').trigger('mouseenter');
+			$(o.target+'.'+o.selectClass).trigger('mouseenter');
 		});
 
 	return this.each(function() {
@@ -314,8 +315,8 @@ jQuery.fn.lavaLamp = function(o) {
 
 		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = $(o.target+'[class!=noLava]', this), delayTimer, bx=0, by=0, mh=0, mw=0, ml=0, mt=0;
 
-		// start $selected default with CSS class 'selectedLava'
-		$selected = $(o.target+'.selectedLava', this);
+		// start $selected default with CSS `selectedClass`
+		$selected = $(o.target + '.' + o.selectClass, this);
 		
 		// override $selected if startItem is set
 		if (o.startItem != '')
@@ -353,8 +354,8 @@ jQuery.fn.lavaLamp = function(o) {
 		if ( $selected.length<1 )
 			$selected = $lt.eq(0);
 
-		// make sure we only have one element as $selected and apply selectedLava class
-		$selected = $($selected.eq(0).addClass('selectedLava'));
+		// make sure we only have one element as $selected and apply selectedClass
+		$selected = $($selected.eq(0).addClass(o.selectClass));
 			
 		// add mouseover event for every sub element
 		$lt.bind('mouseenter', function() {
@@ -364,8 +365,8 @@ jQuery.fn.lavaLamp = function(o) {
 			move($(this));
 		}).click(function(e) {
 			if (o.setOnClick) {
-				$selected.removeClass('selectedLava');
-				$selected = $(this).addClass('selectedLava');
+				$selected.removeClass(o.selectClass);
+				$selected = $(this).addClass(o.selectClass);
 			}
 			return o.click.apply(this, [e, this]);
 		});
