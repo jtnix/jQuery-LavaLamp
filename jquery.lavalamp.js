@@ -358,7 +358,7 @@ jQuery.fn.lavaLamp = function(o) {
 		$selected = $($selected.eq(0).addClass(o.selectClass));
 			
 		// add mouseover event for every sub element
-		$lt.bind('mouseenter', function() {
+		$lt.bind('mouseenter focusin', function() {
 			//console.log('mouseenter');
 			// help backLava behave if returnDelay is set
 			if(delayTimer) {clearTimeout(delayTimer);delayTimer=null;}
@@ -396,7 +396,7 @@ jQuery.fn.lavaLamp = function(o) {
 		}
 
 		// after we leave the container element, move back to default/last clicked element
-		$(this).bind('mouseleave', function() {
+		$(this).bind('mouseleave focusout', function() {
 			//console.log('mouseleave');
 			var $returnEl = null;
 			if (o.returnHome)
