@@ -1,13 +1,13 @@
 /**
- * jquery.LavaLamp v1.3.5 - light up your menus with fluid, jQuery powered animations.
+ * jquery.LavaLamp v1.4 - light up your menus with fluid, jQuery powered animations.
  *
  * Requires jQuery v1.2.3 or better from http://jquery.com
  * Tested on jQuery 1.4.4, 1.3.2 and 1.2.6
  *
  * http://nixbox.com/projects/jquery-lavalamp/
  *
- * Copyright (c) 2008, 2009, 2010 Jolyon Terwilliger, jolyon@nixbox.com
- * Source code Copyright (c) 2008, 2009, 2010
+ * Copyright (c) 2008, 2009, 2010, 2012 Jolyon Terwilliger, jolyon@nixbox.com
+ * Source code Copyright (c) 2008, 2009, 2010, 2012
  * Dual licensed under the MIT and GPL licenses:
  * http://www.opensource.org/licenses/mit-license.php
  * http://www.gnu.org/licenses/gpl.html
@@ -93,6 +93,17 @@
  *							demos, it potentially may affect your current implementation. If you do 
  *							experience problems try re-adjusting the CSS padding and margins for 
  *							your target elements.
+ *
+ * Version: 1.4 - new options:
+ * 						hoverStart, hoverFinish, returnStart, returnFinish - callbacks for different stages
+ *							of the hover process.
+ * 						selectClass, homeClass, skipClass - optional overrides for internally used classes 
+ * 							'selectedLava', 'homeLava' and 'noLava'
+ *				  fixed: improved check for skipClass (noLava) 
+ *				  enhanced: lava animations now trigger on focusin and focusout to support keyboard usage
+ *
+ *				  thanks to: MoOx for the customizable class and keyboard support suggestion
+ *							 many people who identified the noLava bug
  *
  *
  * Examples and usage:
@@ -262,6 +273,43 @@
  * causes the backLava element to resize and reposition to the p.`selectedClass` position
  * and dimensions when the window resizes.
  *
+ * @param selectClass - default: 'selectedLava'
+ * @param homeClass - default: 'homeLava'
+ * @param skipClass - default: 'noLava'
+ * Overrides for internally used classes
+ * note: changing these options will break some of the demos
+ *
+ * @param hoverStart - default: empty function
+ * A method to be called when a new target hover animation starts
+ * The method is called with target element as the only parameter
+ *
+ * Example:
+ * jQuery("div#articles").lavaLamp({hoverStart: function() { alert('new target hover started'); }});
+ * Triggers an alert message when LavaLamp hover starts moving to a new target element.
+ *
+ * @param hoverFinish - default: empty function
+ * A method to be called when a new target hover animation finishes
+ * The method is called with target element as the only parameter
+ *
+ * Example:
+ * jQuery("div#articles").lavaLamp({hoverFinish: function() { alert('new target hover finished'); }});
+ * Triggers an alert message when LavaLamp hover finishes returning to the home element.
+ *
+ * @param returnStart - default: empty function
+ * A method to be called when the hover return animation starts
+ * The method is called with home element as the only parameter
+ *
+ * Example:
+ * jQuery("div#articles").lavaLamp({returnStart: function() { alert('return hover started'); }});
+ * Triggers an alert message when LavaLamp hover starts returning to the home element.
+ *
+ * @param returnFinish - default: empty function
+ * A method to be called when the hover return animation finishes
+ * The method is called with home element as the only parameter
+ *
+ * Example:
+ * jQuery("div#articles").lavaLamp({returnFinish: function() { alert('return hover finished'); }});
+ * Triggers an alert message when LavaLamp hover finishes returning to the home element.
  */
 
 //console.log();
@@ -284,7 +332,13 @@ jQuery.fn.lavaLamp = function(o) {
 				'homeHeight':0,
 				'returnHome':false,
 				'autoResize':false,
-                'selectClass': 'selectedLava'
+                'selectClass': 'selectedLava',
+				'homeClass': 'homeLava',
+				'skipClass': 'noLava',
+				'returnStart': function(){},
+				'returnFinish': function(){},
+				'hoverStart': function(){},
+				'hoverFinish': function(){}
 				}, 
 			o || {});
 
@@ -309,11 +363,11 @@ jQuery.fn.lavaLamp = function(o) {
 
 		// create homeLava element if origin dimensions set
 		if (o.homeTop || o.homeLeft) { 
-			var $home = $('<'+o.container+' class="homeLava"></'+o.container+'>').css({ 'left':o.homeLeft, 'top':o.homeTop, 'width':o.homeWidth, 'height':o.homeHeight, 'position':'absolute','display':'block' });
+			var $home = $('<'+o.container+' class="'+o.homeClass+'"></'+o.container+'>').css({ 'left':o.homeLeft, 'top':o.homeTop, 'width':o.homeWidth, 'height':o.homeHeight, 'position':'absolute','display':'block' });
 			$(this).prepend($home);
 		}
 
-		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = $(o.target+'[class!=noLava]', this), delayTimer, bx=0, by=0, mh=0, mw=0, ml=0, mt=0;
+		var path = location.pathname + location.search + location.hash, $selected, $back, $lt = $(o.target, this).not('.'+o.skipClass), delayTimer, bx=0, by=0, mh=0, mw=0, ml=0, mt=0;
 
 		// start $selected default with CSS `selectedClass`
 		$selected = $(o.target + '.' + o.selectClass, this);
@@ -406,15 +460,22 @@ jQuery.fn.lavaLamp = function(o) {
 		
 			if (o.returnDelay) {
 				if(delayTimer) clearTimeout(delayTimer);
-				delayTimer = setTimeout(function(){move($returnEl);},o.returnDelay);
+				delayTimer = setTimeout(function(){move($returnEl, 'return');},o.returnDelay);
 			}
 			else {
-				move($returnEl);
+				move($returnEl, 'return');
 			}
 			return true;
 		});
 
-		function move($el) {
+		function move($el, cbType) {
+			
+			if (cbType == 'return') {
+				o.returnStart($el);
+			} else {
+				o.hoverStart($el);
+			}
+			
 			if (!$el) $el = $selected;
 
 			if (!o.includeMargins) {
@@ -428,7 +489,13 @@ jQuery.fn.lavaLamp = function(o) {
 				'height': $el.outerHeight()-by
 			};
 			
-			$back.stop().animate(dims, o.speed, o.fx);
+			$back.stop().animate(dims, o.speed, o.fx, function () {
+				if (cbType == 'return') {
+					o.returnFinish($el);
+				} else {
+					o.hoverFinish($el);
+				}
+			});
 		};
 	});
 	
