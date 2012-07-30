@@ -1,4 +1,17 @@
 Awesome animated hover effects powered by jQuery (jquery.com) for your website menus.
 
+Version: 1.4 
+
+	new options:
+		hoverStart, hoverFinish, returnStart, returnFinish - callbacks for different stages
+			of the hover process.
+		selectClass, homeClass, skipClass - optional overrides for internally used classes 
+					'selectedLava', 'homeLava' and 'noLava'
+	fixed:	 	improved check for skipClass (noLava) 
+	enhanced:	lava animations now trigger on focusin and focusout to support keyboard usage
+
+	thanks to:	MoOx for the customizable class and keyboard support suggestion
+				many people who identified the noLava bug
+
 Please see:  http://nixbox.com/projects/jquery-lavalamp/
-for tutorials, options manual and support information.
+for demos, tutorials, options manual and support information.
